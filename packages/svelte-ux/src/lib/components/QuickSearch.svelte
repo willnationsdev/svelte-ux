@@ -3,10 +3,11 @@
 
   import Button from '$lib/components/Button.svelte';
   import Dialog from '$lib/components/Dialog.svelte';
-  import SelectList from '$lib/components/SelectList.svelte';
+  import SelectField from '$lib/components/SelectField.svelte';
   import { getComponentTheme } from './theme';
   import { cls } from '$lib/utils/styles';
   import { smScreen } from '$lib/stores';
+  import { autoFocus, selectOnFocus } from '$lib/actions';
 
   export let options: { name: string; value: string; group?: string }[] = [];
 
@@ -18,10 +19,11 @@
 
   let open = false;
 
+  let fieldActions = (node: any) => [autoFocus(node), selectOnFocus(node)];
+
   /*
     TODO:
      - [ ] Sticky search
-     - [ ] Refine SelectList / reuse with SelectField (and maybe MultiSelect)
      - [ ] Improve size of Dialog (move class to Dialog without breaking overflow)
      - [ ] Load descriptions/meta from +page.ts
      - [ ] Improve dialog positioning on small viewports (consistent top/bottom with max height)
@@ -62,12 +64,15 @@
   }}
 >
   <div class="overflow-auto max-h-[min(90dvh,600px)] min-w-[400px] py-1">
-    <SelectList
+    <SelectField
       icon={mdiMagnify}
       placeholder="Search..."
+      showToggleIcon={false}
+      optionsMode="list"
       {options}
+      {fieldActions}
       on:change
-      on:change={(e) => (open = false)}
+      on:change={() => (open = false)}
       classes={{
         field: {
           container: 'border-none hover:shadow-none group-focus-within:shadow-none',

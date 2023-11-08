@@ -5,7 +5,7 @@
   import { mdiChevronDown, mdiClose } from '@mdi/js';
 
   import Logger from '../utils/logger';
-  import { selectOnFocus } from '../actions/input';
+  import { autoFocus, selectOnFocus } from '../actions/input';
   import { cls } from '../utils/styles';
 
   import Button from './Button.svelte';
@@ -14,6 +14,8 @@
   import MenuItem from './MenuItem.svelte';
   import TextField from './TextField.svelte';
   import { getComponentTheme } from './theme';
+  import Maybe from './Maybe.svelte';
+  import type { IconInput } from '$lib/utils/icons';
 
   const dispatch = createEventDispatcher<{
     change: { value: any; option: any };
@@ -31,16 +33,26 @@
   export let loading: boolean = false;
   export let disabled: boolean = false;
   export let readonly: boolean = false;
-  export let icon: string | null = null;
+  export let icon: IconInput = undefined;
+  export let toggleIcon: IconInput = mdiChevronDown;
+  export let closeIcon: IconInput = mdiClose;
   export let clearable = true;
   export let base = false;
   export let rounded = false;
   export let dense = false;
   export let clearSearchOnOpen = true;
+  export let tabIterable = false;
+  export let tabindex = 0;
+  export let autofocus: ComponentProps<TextField>['autofocus'] = undefined;
+  export let fieldActions: ComponentProps<TextField>['actions'] = autofocus
+    ? (node) => [autoFocus(node, typeof autofocus === 'object' ? autofocus : undefined), selectOnFocus(node)]
+    : undefined;
+
+  export let showToggleIcon = true;
 
   export let classes: {
     root?: string;
-    field?: string;
+    field?: string | ComponentProps<TextField>['classes'];
     options?: string;
     option?: string;
     selected?: string;
@@ -49,6 +61,9 @@
   } = {};
   const theme = getComponentTheme('SelectField');
 
+  let fieldClasses: ComponentProps<TextField>['classes'];
+  $: fieldClasses = typeof(classes.field) === "string" ? { root: classes.field } : classes.field;
+
   // Menu props
   export let placement: Placement = 'bottom-start';
   export let autoPlacement = true;
@@ -56,6 +71,7 @@
   export let resize = true;
   export let disableTransition = false;
   export let menuProps: ComponentProps<Menu> | undefined = undefined;
+  export let optionsMode: "list" | "menu" = "menu";
 
   $: filteredOptions = options ?? [];
   let searchText = '';
@@ -336,7 +352,14 @@
 </script>
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
-<div role="button" tabindex="-1" aria-pressed={open ? "true" : "false"} class={cls('SelectField', theme.root, classes.root, $$props.class)} on:click={onClick}>
+<div
+  role="button"
+  {tabindex}
+  aria-pressed={open ? "true" : "false"}
+  aria-haspopup={optionsMode === "menu" ? "listbox" : undefined}
+  class={cls('SelectField', theme.root, classes.root, $$props.class)}
+  on:click={onClick}>
+
   <TextField
     {label}
     {placeholder}
@@ -352,10 +375,15 @@
     on:blur={onBlur}
     on:keydown={onKeyDown}
     on:keypress={onKeyPress}
-    actions={(node) => [selectOnFocus(node)]}
-    class={cls('h-full', theme.field, classes.field)}
+    actions={fieldActions}
+    classes={{
+      root: cls('h-full'),
+      ...theme.field,
+      ...fieldClasses,
+    }}
     role="combobox"
     aria-expanded={open ? "true" : "false"}
+    aria-autocomplete={optionsMode === "menu" ? "list" : undefined}
     {...$$restProps}
   >
     <slot slot="prepend" name="prepend" />
@@ -371,16 +399,16 @@
         <!-- Do not show chevron or clear buttons -->
       {:else if value && clearable}
         <Button
-          icon={mdiClose}
+          icon={closeIcon}
           class="text-black/50 p-1"
           on:click={(e) => {
             e.stopPropagation();
             clear();
           }}
         />
-      {:else}
+      {:else if showToggleIcon}
         <Button
-          icon={mdiChevronDown}
+          icon={toggleIcon}
           class="text-black/50 p-1 transform {open ? 'rotate-180' : ''}"
           tabindex="-1"
         />
@@ -390,7 +418,7 @@
 
   <!-- Improve initial open display, still needs work when switching from No options found (options.length === 0) -->
   {#if options?.length > 0 || loading !== true}
-    <Menu
+    <Maybe this={optionsMode === "menu" ? Menu : undefined}
       {placement}
       {autoPlacement}
       {matchWidth}
@@ -456,6 +484,7 @@
               role="option"
               aria-selected={option === selected ? "true" : "false"}
               aria-disabled={option?.disabled ? "true" : "false"}
+              tabindex={tabIterable ? 0 : -1}
             >
               {optionText(option)}
             </MenuItem>
@@ -469,6 +498,6 @@
         {/each}
       </div>
       <slot name="actions" {hide} />
-    </Menu>
+    </Maybe>
   {/if}
 </div>

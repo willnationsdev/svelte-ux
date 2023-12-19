@@ -19,6 +19,11 @@
   import type { MenuOption } from '$lib/types/options';
   import type { ScrollIntoViewOptions } from '$lib/actions';
 
+  type LogReason<T extends Event = any> = {
+    reason: string,
+    event?: T
+  }
+
   const dispatch = createEventDispatcher<{
     change: { value: any; option: any };
     inputChange: string;
@@ -58,7 +63,7 @@
     root?: string;
     field?: string | ComponentProps<TextField>['classes'];
     options?: string;
-    option?: string;
+    option?: string | ComponentProps<MenuItem>['classes'];
     selected?: string;
     group?: string;
     empty?: string;
@@ -67,6 +72,9 @@
 
   let fieldClasses: ComponentProps<TextField>['classes'];
   $: fieldClasses = typeof(classes.field) === "string" ? { root: classes.field } : classes.field;
+
+  let optionClasses: ComponentProps<MenuItem>['classes'];
+  $: optionClasses = typeof(classes.option) === "string" ? { root: classes.option } : classes.option;
 
   // Menu props
   export let placement: Placement = 'bottom-start';
@@ -199,12 +207,11 @@
 
     searchText = e.detail.inputValue as string;
     dispatch('inputChange', searchText);
-    show();
+    show({ reason: "onChange", event: e });
   }
 
-  function onFocus() {
-    logger.debug('onFocus');
-    show();
+  function onFocus(event: FocusEvent) {
+    show({ reason: "onFocus", event });
   }
 
   function onBlur(e: FocusEvent|CustomEvent<any>) {
@@ -218,7 +225,7 @@
       fe.relatedTarget !== menuOptionsEl?.offsetParent && // click on scroll bar
       !fe.relatedTarget.closest('menu > [slot=actions]') // click on action item
     ) {
-      hide('blur');
+      hide({ reason: 'blur', event: e });
     } else {
       logger.debug('ignoring blur');
     }
@@ -237,7 +244,7 @@
         break;
 
       case 'ArrowDown':
-        show();
+        show({ reason: `onKeyDown: '${e.key}'`, event: e });
         if (highlightIndex < filteredOptions.length - 1) {
           highlightIndex++;
         } else {
@@ -247,7 +254,7 @@
         break;
 
       case 'ArrowUp':
-        show();
+        show({ reason: `onKeyDown: '${e.key}'`, event: e });
         if (highlightIndex > 0) {
           highlightIndex--;
         } else {
@@ -259,7 +266,7 @@
       case 'Escape':
         if (open) {
           inputEl?.focus();
-          hide('escape');
+          hide({ reason: 'escape', event: e });
         }
         break;
     }
@@ -274,15 +281,15 @@
     }
   }
 
-  function onClick() {
-    logger.debug('onClick');
-    show();
+  function onClick(event: MouseEvent) {
+    show({ reason: 'onClick', event });
   }
 
-  function show() {
-    logger.debug('show');
+  function show<T extends LogReason = any>(reason: string|T = '') {
+    const doShow = !disabled && !readonly;
+    logger.debug('show', { ...(typeof(reason) === "string" ? { reason } : reason), openBefore: open, openAfter: doShow });
 
-    if (!disabled && !readonly) {
+    if (doShow) {
       if (open === false && clearSearchOnOpen) {
         searchText = ''; // Show all options on open
       }
@@ -291,8 +298,8 @@
     }
   }
 
-  function hide(reason = '') {
-    logger.debug('hide', { reason });
+  function hide<T extends LogReason = any>(reason: string|T = '') {
+    logger.debug('hide', { ...(typeof(reason) === "string" ? { reason } : reason), openBefore: open, openAfter: false });
     open = false;
     highlightIndex = -1;
   }
@@ -384,8 +391,8 @@
     on:keydown={onKeyDown}
     on:keypress={onKeyPress}
     actions={fieldActions}
-    classes={{ container: inlineOptions ? 'border-none shadow-none hover:shadow-none group-focus-within:shadow-none' : undefined }}
-    class={cls('h-full', theme.field, fieldClasses)}
+    classes={{ ...(fieldClasses ?? {}), container: inlineOptions ? 'border-none shadow-none hover:shadow-none group-focus-within:shadow-none' : undefined }}
+    class={cls('h-full', theme.field)}
     role="combobox"
     aria-expanded={open ? "true" : "false"}
     aria-autocomplete={!inlineOptions ? "list" : undefined}
@@ -417,7 +424,11 @@
           icon={toggleIcon}
           class="text-black/50 p-1 transform {open ? 'rotate-180' : ''}"
           tabindex="-1"
-          on:click={() => {logger.debug("toggleIcon clicked")}}
+          on:click={(e) => {
+            logger.debug("toggleIcon clicked", { event: e, open })
+            const func = !open ? show : hide;
+            func({ reason: "toggleIcon", event: e });
+          }}
         />
       {/if}
     </span>
@@ -434,7 +445,7 @@
         {disableTransition}
         moveFocus={false}
         bind:open
-        on:close={() => hide('menu on:close')}
+        on:close={e => hide({ reason: 'menu on:close', event: e})}
         {...menuProps}
         >
         <!-- TODO: Rework into hierarchy of snippets in v2.0 -->
@@ -447,6 +458,7 @@
           <svelte:fragment slot="option" let:option let:index>
             <slot name="option" {option} {index} {selected} {value} {highlightIndex}>
               <MenuItem
+                classes={optionClasses}
                 class={cls(
                   index === highlightIndex && '[:not(.group:hover)>&]:bg-black/5',
                   option === selected && (classes.selected || 'font-semibold'),
@@ -454,6 +466,7 @@
                   theme.option,
                   classes.option
                 )}
+                icon={option.icon}
                 scrollIntoView={{ condition: index === highlightIndex, onlyIfNeeded: inlineOptions, ...scrollIntoView }}
                 role="option"
                 aria-selected={option === selected ? "true" : "false"}
@@ -485,6 +498,7 @@
           <svelte:fragment slot="option" let:option let:index>
             <slot name="option" {option} {index} {selected} {value} {highlightIndex}>
               <MenuItem
+                classes={optionClasses}
                 class={cls(
                   index === highlightIndex && '[:not(.group:hover)>&]:bg-black/5',
                   option === selected && (classes.selected || 'font-semibold'),
@@ -492,6 +506,7 @@
                   theme.option,
                   classes.option
                 )}
+                icon={option.icon}
                 scrollIntoView={{ condition: index === highlightIndex, onlyIfNeeded: inlineOptions, ...scrollIntoView }}
                 role="option"
                 aria-selected={option === selected ? "true" : "false"}

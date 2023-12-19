@@ -65,6 +65,7 @@
     error?: string;
     prepend?: string;
     append?: string;
+    icon?: string;
   } = {};
   const theme = getComponentTheme('TextField');
 
@@ -248,7 +249,7 @@
             <slot name="prepend" />
             {#if icon}
               <span class="mr-3">
-                <Icon data={asIconData(icon)} class="text-black/50" />
+                <Icon data={asIconData(icon)} class={cls("text-black/50", classes.icon)} />
               </span>
             {/if}
           </div>

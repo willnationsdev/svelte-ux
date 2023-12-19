@@ -13,15 +13,16 @@
 
   import { delay } from '$lib/utils/promise';
   import { cls } from '$lib/utils/styles';
-  import Icon from '$lib/components/Icon.svelte';
   import type { MenuOption } from '$lib/types/options';
 
-  let options: MenuOption[] = [
+  let graphicOptions: MenuOption[] = [
     { label: 'One', value: 1, icon: mdiMagnify },
     { label: 'Two', value: 2, icon: mdiPlus },
     { label: 'Three', value: 3, icon: mdiPencil },
     { label: 'Four', value: 4, icon: mdiAccount },
   ];
+
+  let options: MenuOption[] = graphicOptions.map(o => { return { ...o, icon: undefined }; });
 
   const optionsWithGroup: MenuOption[] = [
     { label: 'One', value: 1, group: 'First' },
@@ -164,31 +165,6 @@
           <div>{option.label}</div>
           <div class="text-sm text-black/50">{option.value}</div>
         </div>
-      </MenuItem>
-    </div>
-  </SelectField>
-</Preview>
-
-<h2>option slot with icon (field icon updates based on selected option)</h2>
-
-<Preview>
-  <SelectField
-    {options}
-    bind:value
-    activeOptionIcon={true}
-    on:change={(e) => console.log('on:change', e.detail)}
-  >
-    <div slot="option" let:option let:index let:selected let:highlightIndex>
-      <MenuItem
-        class={cls(
-          index === highlightIndex && 'bg-black/5',
-          option === selected && 'font-semibold',
-          option.group ? 'px-4' : 'px-2'
-        )}
-        scrollIntoView={index === highlightIndex}
-        icon={{ data: option.icon, style: 'color: #0000FF;' }}
-      >
-        {option.label}
       </MenuItem>
     </div>
   </SelectField>
@@ -363,6 +339,21 @@
 
 <Preview>
   <SelectField {options} icon={mdiMagnify} />
+</Preview>
+
+<h2>Icon and options with icons (field icon updates based on selected option)</h2>
+
+<Preview>
+  <SelectField
+    options={graphicOptions}
+    bind:value
+    activeOptionIcon={true}
+    classes={{
+      field: { input: 'text-blue-600', icon: 'text-pink-300' },
+      option: { root: 'text-blue-600', icon: 'text-pink-300' }
+    }}
+    on:change={(e) => console.log('on:change', e.detail)}
+  />
 </Preview>
 
 <h2>Rounded</h2>

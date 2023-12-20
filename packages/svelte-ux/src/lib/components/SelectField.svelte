@@ -94,6 +94,8 @@
   export let selected: any = undefined;
   let prevSelected: any = undefined;
 
+  let rootEl: HTMLButtonElement | undefined;
+
   function updateSelected(selected: any, value: any, options: any) {
     logger.debug('updateSelected', {
       value,
@@ -218,13 +220,21 @@
     const fe = e as FocusEvent;
     logger.debug('onBlur', { target: e.target, relatedTarget: fe?.relatedTarget, menuOptionsEl });
 
+    function clickedOutsideMenu() {
+      return fe.relatedTarget instanceof HTMLElement &&
+        !menuOptionsEl?.contains(fe.relatedTarget) && // TODO: Oddly Safari does not set `relatedTarget` to the clicked on menu option (like Chrome and Firefox) but instead appears to take `tabindex` into consideration.  Currently resolves to `.options` after setting `tabindex="-1"
+        fe.relatedTarget !== menuOptionsEl?.offsetParent && // click on scroll bar
+        !fe.relatedTarget.closest('menu > [slot=actions]') // click on action item
+    }
+
+    function clickedOutsideTextField() {
+      return rootEl &&
+        fe.target instanceof HTMLElement &&
+        fe.target.closest("[aria-haspopup='listbox']") !== rootEl;
+    }
+
     // Hide if focus not moved to menu (option clicked)
-    if (
-      fe.relatedTarget instanceof HTMLElement &&
-      !menuOptionsEl?.contains(fe.relatedTarget) && // TODO: Oddly Safari does not set `relatedTarget` to the clicked on menu option (like Chrome and Firefox) but instead appears to take `tabindex` into consideration.  Currently resolves to `.options` after setting `tabindex="-1"
-      fe.relatedTarget !== menuOptionsEl?.offsetParent && // click on scroll bar
-      !fe.relatedTarget.closest('menu > [slot=actions]') // click on action item
-    ) {
+    if (clickedOutsideMenu() && clickedOutsideTextField()) {
       hide({ reason: 'blur', event: e });
     } else {
       logger.debug('ignoring blur');
@@ -369,8 +379,8 @@
   }
 </script>
 
-<!-- svelte-ignore a11y-click-events-have-key-events -->
 <button
+  bind:this={rootEl}
   aria-haspopup={!inlineOptions ? "listbox" : undefined}
   class={cls("SelectField block w-full cursor-default text-left", theme.root, classes.root, $$props.class)}
   on:click={onClick}>
@@ -424,7 +434,8 @@
           icon={toggleIcon}
           class="text-black/50 p-1 transform {open ? 'rotate-180' : ''}"
           tabindex="-1"
-          on:click={(e) => {
+          on:click={e => {
+            e.stopPropagation();
             logger.debug("toggleIcon clicked", { event: e, open })
             const func = !open ? show : hide;
             func({ reason: "toggleIcon", event: e });

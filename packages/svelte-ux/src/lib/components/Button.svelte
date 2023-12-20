@@ -20,6 +20,9 @@
   export let iconOnly = icon !== undefined && $$slots.default !== true;
   export let actions: Actions<HTMLAnchorElement | HTMLButtonElement> | undefined = undefined;
 
+  export let element: HTMLAnchorElement | HTMLButtonElement | undefined | null = undefined;
+  export let iconSpan: HTMLSpanElement | undefined | null = undefined;
+
   export let loading: boolean = false;
   export let disabled: boolean = false;
   export let rounded: boolean | 'full' | undefined = undefined; // default in reactive groupContext below
@@ -240,6 +243,7 @@
 <!-- svelte-ignore a11y-no-static-element-interactions -->
 <svelte:element
   this={href ? 'a' : 'button'}
+  bind:this={element}
   {href}
   {target}
   {type}
@@ -255,11 +259,11 @@
   on:blur
 >
   {#if loading}
-    <span transition:slide={{ axis: 'x', duration: 200 }}>
+    <span bind:this={iconSpan} transition:slide={{ axis: 'x', duration: 200 }}>
       <ProgressCircle size={16} width={2} class={cls(theme.loading, classes.loading)} />
     </span>
   {:else if icon}
-    <span in:slide={{ axis: 'x', duration: 200 }}>
+    <span bind:this={iconSpan} in:slide={{ axis: 'x', duration: 200 }}>
       {#if typeof icon === 'string' || 'icon' in icon}
         <!-- font path/url/etc or font-awesome IconDefinition -->
         <Icon data={asIconData(icon)} class={cls('pointer-events-none', theme.icon, classes.icon)} />

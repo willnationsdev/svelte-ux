@@ -13,7 +13,6 @@
 
   import { delay } from '$lib/utils/promise';
   import { cls } from '$lib/utils/styles';
-  import Icon from '$lib/components/Icon.svelte';
   import type { MenuOption } from '$lib/types/options';
 
   let options: MenuOption[] = [

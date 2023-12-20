@@ -19,6 +19,11 @@
   import type { MenuOption } from '$lib/types/options';
   import type { ScrollIntoViewOptions } from '$lib/actions';
 
+  type LogReason<T extends Event = any> = {
+    reason: string,
+    event?: T
+  }
+
   const dispatch = createEventDispatcher<{
     change: { value: any; option: any };
     inputChange: string;
@@ -51,6 +56,8 @@
     : undefined;
 
   let originalIcon = icon;
+  let toggleButtonElement: ComponentProps<Button>['element'] = undefined;
+  let toggleButtonIconSpan: ComponentProps<Button>['iconElement'] = undefined;
 
   export let scrollIntoView: Partial<ScrollIntoViewOptions> = {};
 
@@ -194,17 +201,27 @@
     });
   }
 
+  function isToggleButtonClicked(ev: MouseEvent) {
+    return toggleButtonIconSpan && toggleButtonIconSpan === ev.target;
+  }
+
+  function isToggleButtonRelated(ev: MouseEvent|FocusEvent) {
+    return toggleButtonElement && toggleButtonElement === ev.relatedTarget;
+  }
+
   function onChange(e: ComponentEvents<TextField>['change']) {
     logger.debug('onChange');
 
     searchText = e.detail.inputValue as string;
     dispatch('inputChange', searchText);
-    show();
+    show({ reason: "onChange", event: e });
   }
 
-  function onFocus() {
-    logger.debug('onFocus');
-    show();
+  function onFocus(event: FocusEvent) {
+    if (isToggleButtonRelated(event)) {
+      return;
+    }
+    show({ reason: "onFocus", event });
   }
 
   function onBlur(e: FocusEvent|CustomEvent<any>) {
@@ -216,9 +233,10 @@
       fe.relatedTarget instanceof HTMLElement &&
       !menuOptionsEl?.contains(fe.relatedTarget) && // TODO: Oddly Safari does not set `relatedTarget` to the clicked on menu option (like Chrome and Firefox) but instead appears to take `tabindex` into consideration.  Currently resolves to `.options` after setting `tabindex="-1"
       fe.relatedTarget !== menuOptionsEl?.offsetParent && // click on scroll bar
-      !fe.relatedTarget.closest('menu > [slot=actions]') // click on action item
+      !fe.relatedTarget.closest('menu > [slot=actions]') && // click on action item
+      !isToggleButtonRelated(fe) // click on toggle button
     ) {
-      hide('blur');
+      hide({ reason: 'blur', event: e });
     } else {
       logger.debug('ignoring blur');
     }
@@ -237,7 +255,7 @@
         break;
 
       case 'ArrowDown':
-        show();
+        show({ reason: `onKeyDown: '${e.key}'`, event: e });
         if (highlightIndex < filteredOptions.length - 1) {
           highlightIndex++;
         } else {
@@ -247,7 +265,7 @@
         break;
 
       case 'ArrowUp':
-        show();
+        show({ reason: `onKeyDown: '${e.key}'`, event: e });
         if (highlightIndex > 0) {
           highlightIndex--;
         } else {
@@ -259,7 +277,7 @@
       case 'Escape':
         if (open) {
           inputEl?.focus();
-          hide('escape');
+          hide({ reason: 'escape', event: e });
         }
         break;
     }
@@ -274,15 +292,18 @@
     }
   }
 
-  function onClick() {
-    logger.debug('onClick');
-    show();
+  function onClick(event: MouseEvent) {
+    if (isToggleButtonClicked(event) || isToggleButtonRelated(event)) {
+      return;
+    }
+    show({ reason: 'onClick', event });
   }
 
-  function show() {
-    logger.debug('show');
+  function show<T extends LogReason = any>(reason: string|T = '') {
+    const doShow = !disabled && !readonly;
+    logger.debug('show', { ...(typeof(reason) === "string" ? { reason } : reason), openBefore: open, openAfter: doShow });
 
-    if (!disabled && !readonly) {
+    if (doShow) {
       if (open === false && clearSearchOnOpen) {
         searchText = ''; // Show all options on open
       }
@@ -291,8 +312,8 @@
     }
   }
 
-  function hide(reason = '') {
-    logger.debug('hide', { reason });
+  function hide<T extends LogReason = any>(reason: string|T = '') {
+    logger.debug('hide', { ...(typeof(reason) === "string" ? { reason } : reason), openBefore: open, openAfter: false });
     open = false;
     highlightIndex = -1;
   }
@@ -417,7 +438,13 @@
           icon={toggleIcon}
           class="text-black/50 p-1 transform {open ? 'rotate-180' : ''}"
           tabindex="-1"
-          on:click={() => {logger.debug("toggleIcon clicked")}}
+          bind:element={toggleButtonElement}
+          bind:iconElement={toggleButtonIconSpan}
+          on:click={(e) => {
+            logger.debug("toggleIcon clicked", { event: e, open })
+            const func = !open ? show : hide;
+            func({ reason: "toggleIcon", event: e });
+          }}
         />
       {/if}
     </span>
@@ -434,7 +461,7 @@
         {disableTransition}
         moveFocus={false}
         bind:open
-        on:close={() => hide('menu on:close')}
+        on:close={e => hide({ reason: 'menu on:close', event: e})}
         {...menuProps}
         >
         <!-- TODO: Rework into hierarchy of snippets in v2.0 -->
